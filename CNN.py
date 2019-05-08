@@ -1,86 +1,149 @@
 import numpy as np
-import im2col
-
-class ConvLayer:
-
-    def __init__(self,input, filter_count : int, filter_size : tuple(), filter_channel, stride: tuple(), padding: int,bias, activation):
-        self.input = input
-        self.input_shape = input.shape
-        self.stride = stride
-        self.filter_size = filter_size
-        self.filter_count = filter_count
-        self.filter_channel = filter_channel
-        self.padding = padding
-        self.activation = activation
-        self.bias = bias
-        self.filters = self.initialize_parameters()
-
-    def initialize_parameters(self,filter_size,filter_channel,filter_count):
-        return 0.01 * np.random.rand(self.filter_count,self.filter_channel,self.filter_size[0],self.filter_size[1])
-
-    def output_shape(self):
-        return ((self.filter_count, 
-                 self.output_channel,
-                 (self.input.shape[0] + 2 * self.padding - self.filter_size[0]) // self.stride + 1, 
-                 (self.input.shape[1] + 2 * self.padding - self.filter_size[1]) // self.stride + 1))
-
-    def forward_compute(self):
-        n_filters, d_filter, h_filter, w_filter = self.filters.shape
-        n_x, d_x, h_x, w_x = self.input.shape
-        h_out = (h_x - h_filter + 2 * padding) // stride + 1
-        w_out = (w_x - w_filter + 2 * padding) // stride + 1
+import hipsternet.loss as loss_fun
+import layers as l
+import regularization as reg
+import utils as util
 
 
-        input_col = im2col(self.input,h_filter,w_filter,padding=self.padding,stride=self.stride)
-        filter_col = W.reshape(n_filters, -1)
+class NeuralNet(object):
 
-        out = W_col @ X_col + b
-        out = out.reshape(n_filters, h_out, w_out, n_x)
-        out = out.transpose(3, 0, 1, 2)
-        self.output = out
+    loss_funs = dict(
+        cross_ent=loss_fun.cross_entropy,
+        hinge=loss_fun.hinge_loss,
+        squared=loss_fun.squared_loss,
+        l2_regression=loss_fun.l2_regression,
+        l1_regression=loss_fun.l1_regression
+    )
+
+    dloss_funs = dict(
+        cross_ent=loss_fun.dcross_entropy,
+        hinge=loss_fun.dhinge_loss,
+        squared=loss_fun.dsquared_loss,
+        l2_regression=loss_fun.dl2_regression,
+        l1_regression=loss_fun.dl1_regression
+    )
+
+    forward_nonlins = dict(
+        relu=l.relu_forward,
+        lrelu=l.lrelu_forward,
+        sigmoid=l.sigmoid_forward,
+        tanh=l.tanh_forward
+    )
+
+    backward_nonlins = dict(
+        relu=l.relu_backward,
+        lrelu=l.lrelu_backward,
+        sigmoid=l.sigmoid_backward,
+        tanh=l.tanh_backward
+    )
+
+    def __init__(self, D, C, H, lam=1e-3, p_dropout=.8, loss='cross_ent', nonlin='relu'):
+        if loss not in NeuralNet.loss_funs.keys():
+            raise Exception('Loss function must be in {}!'.format(NeuralNet.loss_funs.keys()))
+
+        if nonlin not in NeuralNet.forward_nonlins.keys():
+            raise Exception('Nonlinearity must be in {}!'.format(NeuralNet.forward_nonlins.keys()))
+
+        self._init_model(D, C, H)
+
+        self.lam = lam
+        self.p_dropout = p_dropout
+        self.loss = loss
+        self.forward_nonlin = NeuralNet.forward_nonlins[nonlin]
+        self.backward_nonlin = NeuralNet.backward_nonlins[nonlin]
+        self.mode = 'classification'
+
+        if 'regression' in loss:
+            self.mode = 'regression'
+
+    def train_step(self, X_train, y_train):
+        """
+        Single training step over minibatch: forward, loss, backprop
+        """
+        y_pred, cache = self.forward(X_train, train=True)
+        loss = self.loss_funs[self.loss](self.model, y_pred, y_train, self.lam)
+        grad = self.backward(y_pred, y_train, cache)
+
+        return grad, loss
+
+    def predict_proba(self, X):
+        score, _ = self.forward(X, False)
+        return util.softmax(score)
+
+    def predict(self, X):
+        if self.mode == 'classification':
+            return np.argmax(self.predict_proba(X), axis=1)
+        else:
+            score, _ = self.forward(X, False)
+            y_pred = np.round(score)
+            return y_pred
+
+    def forward(self, X, train=False):
+        raise NotImplementedError()
+
+    def backward(self, y_pred, y_train, cache):
+        raise NotImplementedError()
+
+    def _init_model(self, D, C, H):
+        raise NotImplementedError()
+
+class ConvNet(NeuralNet):
+
+    def __init__(self, D, C, H, lam=1e-3, p_dropout=.8, loss='cross_ent', nonlin='relu'):
+        super().__init__(D, C, H, lam, p_dropout, loss, nonlin)
+
+    def forward(self, X, train=False):
+        # Conv-1
+        h1, h1_cache = l.conv_forward(X, self.model['W1'], self.model['b1'])
+        h1, nl_cache1 = l.relu_forward(h1)
+
+        # Pool-1
+        hpool, hpool_cache = l.maxpool_forward(h1)
+        h2 = hpool.ravel().reshape(X.shape[0], -1)
+
+        # FC-7
+        h3, h3_cache = l.fc_forward(h2, self.model['W2'], self.model['b2'])
+        h3, nl_cache3 = l.relu_forward(h3)
+
+        # Softmax
+        score, score_cache = l.fc_forward(h3, self.model['W3'], self.model['b3'])
+
+        return score, (X, h1_cache, h3_cache, score_cache, hpool_cache, hpool, nl_cache1, nl_cache3)
+
+    def backward(self, y_pred, y_train, cache):
+        X, h1_cache, h3_cache, score_cache, hpool_cache, hpool, nl_cache1, nl_cache3 = cache
+
+        # Output layer
+        grad_y = self.dloss_funs[self.loss](y_pred, y_train)
+
+        # FC-7
+        dh3, dW3, db3 = l.fc_backward(grad_y, score_cache)
+        dh3 = self.backward_nonlin(dh3, nl_cache3)
+
+        dh2, dW2, db2 = l.fc_backward(dh3, h3_cache)
+        dh2 = dh2.ravel().reshape(hpool.shape)
+
+        # Pool-1
+        dpool = l.maxpool_backward(dh2, hpool_cache)
+
+        # Conv-1
+        dh1 = self.backward_nonlin(dpool, nl_cache1)
+        dX, dW1, db1 = l.conv_backward(dh1, h1_cache)
+
+        grad = dict(
+            W1=dW1, W2=dW2, W3=dW3, b1=db1, b2=db2, b3=db3
+        )
+
+        return grad
+
+    def _init_model(self, D, C, H):
+        self.model = dict(
+            W1=np.random.randn(D, 1, 3, 3) / np.sqrt(D / 2.),
+            W2=np.random.randn(D * 14 * 14, H) / np.sqrt(D * 14 * 14 / 2.),
+            W3=np.random.randn(H, C) / np.sqrt(H / 2.),
+            b1=np.zeros((D, 1)),
+            b2=np.zeros((1, H)),
+            b3=np.zeros((1, C))
+        )
 
 
-    def conv(self, image ,filter ,stride : int ,padding : int):
-        x, y = image.shape
-        result = np.zeros(((image.shape[0] - filter.shape[0]) // stride + 1, (image.shape[1]-filter.shape[1]) // stride + 1),dtype=np.int32)
-        for i in range(0,x-filter.shape[0]+1, stride):
-            for j in range(0,y-filter.shape[1]+1, stride):
-                result[i//stride][j//stride] = self.conv_prod(i,j,image,filter)
-        return result
-       
-    def conv_prod(self, x : int, y : int, image, filter):
-        filter_x, filter_y = filter.shape
-        sum = 0
-        for i in range(filter_x):
-            for j in range(filter_y):
-                sum += image[x+i][y+j] * filter[i][j]
-        return sum
-
-    def compute_layer(self,images,filters,bias,stride,padding):
-
-        result = np.zeros((filters.shape[0], (image.shape[1] - filter.shape[1]) // stride + 1, (image.shape[2]-filter.shape[2]) // stride + 1),dtype=np.int32)
-        biases = np.zeros((filters.shape[0], (image.shape[1] - filter.shape[1]) // stride + 1, (image.shape[2]-filter.shape[2]) // stride + 1),dtype=np.int32)
-        biases += bias
-
-        for i in range(filters.shape[0]):
-            for j in range(images.shape[0]):
-                result[i] = result[i] + self.conv(images[j],filters[i],stride,padding)
-        result += biases
-        return result
-
-
-layer = ConvLayer()
-
-image = np.zeros((5,28,28),dtype=np.int32)
-#image = np.array([[1,1,1],[2,2,2],[3,3,3]],dtype=np.int32)
-
-#filter = np.array([[2,4,3],[1,5,1],[1,2,3]],dtype=np.int32)
-filter = np.zeros((10,3,3),dtype=np.int32)
-
-result = layer.compute_layer(image,filter,0,1,0)
-
-#result = layer.conv(image,filter)
-
-
-print(result)
-print(result.shape)
