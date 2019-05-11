@@ -2,13 +2,14 @@ import numpy as np
 import utils
 import constants as c
 import regularization as reg
-from im2col import *
+from im2col import im2col_indices
 
 
 def fc_forward(X, W, b):
     """ Standart nöron ağı katmanının ileri hesaplama işlemi
         Basitçe matris çarpımı ve biasın tüm sonuçlara eklenmesinden ibaret
     """
+    b = np.tile(b, (16,1))
     out = X @ W + b
     cache = (W, X)
     return out, cache
@@ -19,9 +20,9 @@ def fc_backward(dout, cache):
     Tüm katmanın bir sonraki katmandan gelen sensitivity ile hesaplanması işlemi
     Çıktı olarak bir önceki katmana türev sonuçları dönüyor. (Giriş, ağırlık ve bias türevleri)
     """
-    W, h = cache
+    W, p = cache
 
-    dW = h.T @ dout
+    dW = p.T @ dout
     db = np.sum(dout, axis=0)
     dX = dout @ W.T
 
@@ -156,13 +157,9 @@ def conv_forward(X, W, b, stride=1, padding=1):
     cache = W, b, stride, padding
     n_filters, d_filter, h_filter, w_filter = W.shape
     n_x, d_x, h_x, w_x = X.shape
-    h_out = (h_x - h_filter + 2 * padding) / stride + 1
-    w_out = (w_x - w_filter + 2 * padding) / stride + 1
+    h_out = (h_x - h_filter + 2 * padding) // stride + 1
+    w_out = (w_x - w_filter + 2 * padding) // stride + 1
 
-    if not h_out.is_integer() or not w_out.is_integer():
-        raise Exception('Invalid output dimension!')
-
-    h_out, w_out = int(h_out), int(w_out)
 
     X_col = im2col_indices(X, h_filter, w_filter, padding=padding, stride=stride)
     W_col = W.reshape(n_filters, -1)

@@ -15,5 +15,12 @@ def epoch():
     #fc_forward(input: 1x1x9216)output: 1x1x4096
     #fc_forward(input: 1x1x4096)output: 1x1x1000
 
+X = np.random.rand(16,3,224,224)
+y = np.random.rand(16,6)
+print(X.shape)
+
+W1=np.random.normal(0, 1, (96, 1, 12, 12))
+b1=np.zeros((96,1))
 
 a = CNN.OurConvNet()
+a.train_step(X, y)

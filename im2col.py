@@ -4,8 +4,8 @@ import numpy as np
 def get_im2col_indices(x_shape, field_height, field_width, padding=1, stride=1):
     # First figure out what the size of the output should be
     N, C, H, W = x_shape
-    assert (H + 2 * padding - field_height) % stride == 0
-    assert (W + 2 * padding - field_height) % stride == 0
+    #assert (H + 2 * padding - field_height) % stride == 0
+    #assert (W + 2 * padding - field_height) % stride == 0
     out_height = int((H + 2 * padding - field_height) / stride + 1)
     out_width = int((W + 2 * padding - field_width) / stride + 1)
 
