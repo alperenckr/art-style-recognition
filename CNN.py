@@ -153,21 +153,12 @@ class ConvNet(NeuralNet):
 
         return grad
 
-    def _init_model(self, D, C, H):
-        self.model = dict(
-            W1=np.random.randn(96, 3, 11, 11) / np.sqrt(D / 2.),
-            W2=np.random.randn(256 , 96 , 5, 5) / np.sqrt(D / 2.),
-            W3=np.random.randn(H, C) / np.sqrt(H / 2.),
-            b1=np.zeros((D, 1)),
-            b2=np.zeros((1, H)),
-            b3=np.zeros((1, C))
-        )
 
 
 class OurConvNet(NeuralNet):
     
     def __init__(self):
-        return
+        self.model = self._init_model()
 
     def forward(self, train_data):
         # X (image_count, RGB, width,height)
@@ -183,14 +174,19 @@ class OurConvNet(NeuralNet):
         #fc_forward(input: Ix9216)output: Ix4096
         #fc_forward(input: Ix4096)output: Ix1000
 
-        out1, cache1 = l.conv_forward(train_data, self.model["W1"], stride=4,padding=2) #output image_cnt x 96 x 55 x 55
-        hpool1, hpool_cache1 = l.maxpool_forward(out1,size = 3, stride = 2)             #output: Ix96x27x27
-        out2, cache2 = l.conv_forward(hpool1, self.model["W2"], stride=1,padding=2)     #output: Ix256x27x27
-        hpool2, hpool_cache2 = l.maxpool_forward(out2,size = 3, stride = 2)             #output: Ix256x13x13
-        out3, cache3 = l.conv_forward(hpool2, self.model["W3"], stride=1,padding=1)     #output: Ix384x13x13
-        out4, cache4 = l.conv_forward(hpool3, self.model["W4"], stride=1,padding=1)     #output: Ix384x13x13
-        out5, cache5 = l.conv_forward(hpool4, self.model["W5"], stride=1,padding=1)     #output: Ix256x13x13
-        hpool3, hpool_cache3 = l.maxpool_forward(out5,size = 3, stride = 2)             #output: Ix256x6x6
+        out1, cache1 = l.conv_forward(train_data, self.model["W1"], self.model["b1"], stride=4,padding=2) #output image_cnt x 96 x 55 x 55
+        relu1, relu_cache1 = l.relu_forward(out1)
+        hpool1, hpool_cache1 = l.maxpool_forward(relu1,size = 3, stride = 2)             #output: Ix96x27x27
+        out2, cache2 = l.conv_forward(hpool1, self.model["W2"], self.model["b2"], stride=1,padding=2)     #output: Ix256x27x27
+        relu2, relu_cache2 = l.relu_forward(out2)
+        hpool2, hpool_cache2 = l.maxpool_forward(relu2, size = 3, stride = 2)             #output: Ix256x13x13
+        out3, cache3 = l.conv_forward(hpool2, self.model["W3"], self.model["b3"], stride=1,padding=1)     #output: Ix384x13x13
+        relu3, relu_cache3 = l.relu_forward(out3)
+        out4, cache4 = l.conv_forward(relu3, self.model["W4"], self.model["b4"], stride=1,padding=1)     #output: Ix384x13x13
+        relu4, relu_cache4 = l.relu_forward(out4)
+        out5, cache5 = l.conv_forward(relu4, self.model["W5"], self.model["b5"], stride=1,padding=1)     #output: Ix256x13x13
+        relu5, relu_cache5 = l.relu_forward(out5)
+        hpool3, hpool_cache3 = l.maxpool_forward(relu5,size = 3, stride = 2)             #output: Ix256x6x6
 
         out6, cache6 = l.fc_forward(hpool3, self.model['W6'], self.model['b6'])         #output: Ix4096
         out7, cache7 = l.fc_forward(out6, self.model['W7'], self.model['b7'])           #output: Ix4096
@@ -198,3 +194,24 @@ class OurConvNet(NeuralNet):
 
     def backward(self):
         return
+
+    def _init_model(self):
+        #ideal way of initialize for relu activation function
+        mu, sigma = 0, 1 #mean and standart variation
+        model = dict(
+            W1=np.random.normal(mu, sigma, (96, 11, 11)),
+            W2=np.random.normal(mu, sigma, (256, 55, 55)),
+            W3=np.random.normal(mu, sigma, (384, 3, 3)),
+            W4=np.random.normal(mu, sigma, (384, 3, 3)),
+            W5=np.random.normal(mu, sigma, (256, 3, 3)),
+            W6=np.random.normal(mu, sigma, (1, 4096)),
+            W7=np.random.normal(mu, sigma, (1, 4096)),
+            b1=np.zeros(96),
+            b2=np.zeros(256),
+            b3=np.zeros(384),
+            b4=np.zeros(384),
+            b5=np.zeros(256),
+            b6=np.zeros(4096),
+            b7=np.zeros(4096),
+        )
+        return model
