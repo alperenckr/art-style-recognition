@@ -1,11 +1,16 @@
 import numpy as np
-import hipsternet.loss as loss_fun
+import loss as loss_fun
 import layers as l
 import regularization as reg
 import utils as util
 
 
 class NeuralNet(object):
+    """
+    Ana nöron ağı sınıfı
+    Diğer nöron ağı sınıfları bu sınıftan türetilir.
+    Bu kodda bir tane nöron ağı çeşidi bulunmaktadır.
+    """
 
     loss_funs = dict(
         cross_ent=loss_fun.cross_entropy,
@@ -13,7 +18,7 @@ class NeuralNet(object):
         squared=loss_fun.squared_loss,
         l2_regression=loss_fun.l2_regression,
         l1_regression=loss_fun.l1_regression
-    )
+    ) 
 
     dloss_funs = dict(
         cross_ent=loss_fun.dcross_entropy,
@@ -88,17 +93,29 @@ class NeuralNet(object):
         raise NotImplementedError()
 
 class ConvNet(NeuralNet):
+    """
+    Konvolüsyonel sinir ağı
+    NeuralNet sınıfından türetilir
 
+    c: etiket sayısı
+    d: input size
+
+
+    """
     def __init__(self, D, C, H, lam=1e-3, p_dropout=.8, loss='cross_ent', nonlin='relu'):
         super().__init__(D, C, H, lam, p_dropout, loss, nonlin)
 
     def forward(self, X, train=False):
         # Conv-1
-        h1, h1_cache = l.conv_forward(X, self.model['W1'], self.model['b1'])
+        # input: 227 x 227 stride: 4 pad: 0
+        h1, h1_cache = l.conv_forward(X, self.model['W1'], self.model['b1'],stride=4,padding=0)
         h1, nl_cache1 = l.relu_forward(h1)
+        # output: 
+
+
 
         # Pool-1
-        hpool, hpool_cache = l.maxpool_forward(h1)
+        hpool, hpool_cache = l.maxpool_forward(h1,size = 3, stride = 2)
         h2 = hpool.ravel().reshape(X.shape[0], -1)
 
         # FC-7
@@ -138,8 +155,8 @@ class ConvNet(NeuralNet):
 
     def _init_model(self, D, C, H):
         self.model = dict(
-            W1=np.random.randn(D, 1, 3, 3) / np.sqrt(D / 2.),
-            W2=np.random.randn(D * 14 * 14, H) / np.sqrt(D * 14 * 14 / 2.),
+            W1=np.random.randn(96, 3, 11, 11) / np.sqrt(D / 2.),
+            W2=np.random.randn(256 , 96 , 5, 5) / np.sqrt(D / 2.),
             W3=np.random.randn(H, C) / np.sqrt(H / 2.),
             b1=np.zeros((D, 1)),
             b2=np.zeros((1, H)),
@@ -147,3 +164,37 @@ class ConvNet(NeuralNet):
         )
 
 
+class OurConvNet(NeuralNet):
+    
+    def __init__(self):
+        return
+
+    def forward(self, train_data):
+        # X (image_count, RGB, width,height)
+        # I == image_count
+        #conv_forward(input: Ix3x224x224, filter_size: 96 x 1 x 11 x 11 , stride: 4, padding: 2)output: Ix96x55x55
+        #maxpool_forward(input: Ix96x55x55, filter_size: 3x3, stride: 2)output: Ix96x27x27
+        #conv_forward(input: Ix96x27x27, filter_size: 256x1x5x5, stride: 1, padding: 2)output: Ix256x27x27
+        #maxpool_forward(input: Ix256x27x27, filter_size: 3x3, stride: 2)output: Ix256x13x13
+        #conv_forward(input: Ix256x13x13, filter_size: 384x1x3x3, stride: 1, padding: 1)output: Ix384x13x13
+        #conv_forward(input: Ix384x13x13, filter_size: 384x1x3x3, stride: 1, padding: 1)output: Ix384x13x13
+        #conv_forward(input: Ix384x13x13, filter_size: 256x1x3x3, stride: 1, padding: 1)output: Ix256x13x13
+        #maxpool_forward(input: Ix256x13x13, filter_size: 3x3, stride: 2)output: Ix256x6x6
+        #fc_forward(input: Ix9216)output: Ix4096
+        #fc_forward(input: Ix4096)output: Ix1000
+
+        out1, cache1 = l.conv_forward(train_data, self.model["W1"], stride=4,padding=2) #output image_cnt x 96 x 55 x 55
+        hpool1, hpool_cache1 = l.maxpool_forward(out1,size = 3, stride = 2)             #output: Ix96x27x27
+        out2, cache2 = l.conv_forward(hpool1, self.model["W2"], stride=1,padding=2)     #output: Ix256x27x27
+        hpool2, hpool_cache2 = l.maxpool_forward(out2,size = 3, stride = 2)             #output: Ix256x13x13
+        out3, cache3 = l.conv_forward(hpool2, self.model["W3"], stride=1,padding=1)     #output: Ix384x13x13
+        out4, cache4 = l.conv_forward(hpool3, self.model["W4"], stride=1,padding=1)     #output: Ix384x13x13
+        out5, cache5 = l.conv_forward(hpool4, self.model["W5"], stride=1,padding=1)     #output: Ix256x13x13
+        hpool3, hpool_cache3 = l.maxpool_forward(out5,size = 3, stride = 2)             #output: Ix256x6x6
+
+        out6, cache6 = l.fc_forward(hpool3, self.model['W6'], self.model['b6'])         #output: Ix4096
+        out7, cache7 = l.fc_forward(out6, self.model['W7'], self.model['b7'])           #output: Ix4096
+        return
+
+    def backward(self):
+        return
