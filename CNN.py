@@ -6,12 +6,12 @@ import utils as util
 
 
 class NeuralNet(object):
+
     """
     Ana nöron ağı sınıfı
     Diğer nöron ağı sınıfları bu sınıftan türetilir.
     Bu kodda bir tane nöron ağı çeşidi bulunmaktadır.
     """
-
     loss_funs = dict(
         cross_ent=loss_fun.cross_entropy,
         hinge=loss_fun.hinge_loss,
@@ -19,7 +19,6 @@ class NeuralNet(object):
         l2_regression=loss_fun.l2_regression,
         l1_regression=loss_fun.l1_regression
     ) 
-
     dloss_funs = dict(
         cross_ent=loss_fun.dcross_entropy,
         hinge=loss_fun.dhinge_loss,
@@ -92,67 +91,6 @@ class NeuralNet(object):
     def _init_model(self, D, C, H):
         raise NotImplementedError()
 
-class ConvNet(NeuralNet):
-    """
-    Konvolüsyonel sinir ağı
-    NeuralNet sınıfından türetilir
-
-    c: etiket sayısı
-    d: input size
-
-
-    """
-    def __init__(self, D, C, H, lam=1e-3, p_dropout=.8, loss='cross_ent', nonlin='relu'):
-        super().__init__(D, C, H, lam, p_dropout, loss, nonlin)
-
-    def forward(self, X, train=False):
-        # Conv-1
-        # input: 227 x 227 stride: 4 pad: 0
-        h1, h1_cache = l.conv_forward(X, self.model['W1'], self.model['b1'],stride=4,padding=0)
-        h1, nl_cache1 = l.relu_forward(h1)
-        # output: 
-
-
-
-        # Pool-1
-        hpool, hpool_cache = l.maxpool_forward(h1,size = 3, stride = 2)
-        h2 = hpool.ravel().reshape(X.shape[0], -1)
-
-        # FC-7
-        h3, h3_cache = l.fc_forward(h2, self.model['W2'], self.model['b2'])
-        h3, nl_cache3 = l.relu_forward(h3)
-
-        # Softmax
-        score, score_cache = l.fc_forward(h3, self.model['W3'], self.model['b3'])
-
-        return score, (X, h1_cache, h3_cache, score_cache, hpool_cache, hpool, nl_cache1, nl_cache3)
-
-    def backward(self, y_pred, y_train, cache):
-        X, h1_cache, h3_cache, score_cache, hpool_cache, hpool, nl_cache1, nl_cache3 = cache
-
-        # Output layer
-        grad_y = self.dloss_funs[self.loss](y_pred, y_train)
-
-        # FC-7
-        dh3, dW3, db3 = l.fc_backward(grad_y, score_cache)
-        dh3 = self.backward_nonlin(dh3, nl_cache3)
-
-        dh2, dW2, db2 = l.fc_backward(dh3, h3_cache)
-        dh2 = dh2.ravel().reshape(hpool.shape)
-
-        # Pool-1
-        dpool = l.maxpool_backward(dh2, hpool_cache)
-
-        # Conv-1
-        dh1 = self.backward_nonlin(dpool, nl_cache1)
-        dX, dW1, db1 = l.conv_backward(dh1, h1_cache)
-
-        grad = dict(
-            W1=dW1, W2=dW2, W3=dW3, b1=db1, b2=db2, b3=db3
-        )
-
-        return grad
-
 
 
 class OurConvNet(NeuralNet):
@@ -203,7 +141,7 @@ class OurConvNet(NeuralNet):
         hpool3, hpool_cache3 = l.maxpool_forward(relu5,size = 3, stride = 2)             #output: Ix256x6x6
         cache["pool3"] = hpool_cache3
         h = hpool3.ravel().reshape(train_data.shape[0], -1)
-        
+     
         out6, cache6 = l.fc_forward(h, self.model['W6'], self.model['b6'])         #output: Ix4096
         cache["fc1"] = cache6
         out7, cache7 = l.fc_forward(out6, self.model['W7'], self.model['b7'])           #output: Ix1000
@@ -216,11 +154,8 @@ class OurConvNet(NeuralNet):
 
     def backward(self, cache, y_train):
         
-        
         grad_out = loss_fun.dcross_entropy(cache["output"],y_train)
-
         grad = {}
-
         dp8, dW8, db8 = l.fc_backward(grad_out, cache["fc3"])
         grad["W8"] = dW8
         grad["b8"] = db8
