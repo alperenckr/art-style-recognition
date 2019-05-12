@@ -18,6 +18,7 @@ def get_pictures(folder_name,train_df):
     return X_dataset, Y_dataset
 
 
+
 styles = ["Realism","Cubism","Impressionism","Expressionism","High Renaissance","Sembolism"]
 train_df = choose_styles(styles=styles)
 X_train, y_train = get_pictures("D:/painter-by-numbers/train",train_df)
