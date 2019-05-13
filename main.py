@@ -1,6 +1,7 @@
 import layers
 import numpy as np
 import CNN
+from solver import adam
 
 def epoch():
     pass
@@ -15,14 +16,17 @@ def epoch():
     #fc_forward(input: 1x1x9216)output: 1x1x4096
     #fc_forward(input: 1x1x4096)output: 1x1x1000
 
-X = np.random.rand(16,3,224,224)
-y = np.random.randint(6, size = 16)
+X = np.random.rand(32,3,224,224)
+y = np.random.randint(6, size = 32)
 print(X.shape)
 
 W1=np.random.normal(0, 1, (96, 1, 12, 12))
 b1=np.zeros((96,1))
 
-a = CNN.OurConvNet()
-grad, loss = a.train_step(X, y)
-print(grad)
-print(loss)
+nn = CNN.OurConvNet()
+
+a = adam(nn, X, y, None, 0.001, 16, 10, 1)
+
+X2 = np.random.rand(16,3,224,224)
+print(a.predict(X2))
+

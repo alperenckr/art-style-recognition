@@ -71,17 +71,7 @@ class NeuralNet(object):
 
         return grad, loss
 
-    def predict_proba(self, X):
-        score, _ = self.forward(X, False)
-        return util.softmax(score)
 
-    def predict(self, X):
-        if self.mode == 'classification':
-            return np.argmax(self.predict_proba(X), axis=1)
-        else:
-            score, _ = self.forward(X, False)
-            y_pred = np.round(score)
-            return y_pred
 
     def forward(self, X, train=False):
         raise NotImplementedError()
@@ -104,6 +94,8 @@ class ConvNet(NeuralNet):
     """
     def __init__(self, D, C, H, lam=1e-3, p_dropout=.8, loss='cross_ent', nonlin='relu'):
         super().__init__(D, C, H, lam, p_dropout, loss, nonlin)
+
+
 
     def forward(self, X, train=False):
         # Conv-1
@@ -159,6 +151,14 @@ class OurConvNet(NeuralNet):
     
     def __init__(self):
         self.model = self._init_model()
+
+
+    def predict_proba(self, X):
+        cache = self.forward(X)
+        return util.softmax(cache["output"])
+
+    def predict(self, X):
+        return np.argmax(self.predict_proba(X), axis=1)
 
     def forward(self, train_data):
         # X (image_count, RGB, width,height)
