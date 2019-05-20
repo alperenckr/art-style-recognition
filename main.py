@@ -49,23 +49,15 @@ def get_from_file(file_path="low_loss.hdf5"):
 
     return weights
 
-weights = get_from_file()
+#weights = get_from_file()
 X_train, Y_train, X_test, Y_test = pre.get_pictures_from_zip("train_prep_latest.zip",pre.train_df)
-
-
 minibatch = get_minibatch(np.array(X_test),np.array(Y_test),16)
-
-print(len(X_test))
-print(len(Y_test))
-print(X_test[0].shape)
-
+#print(len(X_test))
+#print(len(Y_test))
+#print(X_test[0].shape)
 nn = CNN.OurConvNet()
-
-
 #Pretrained weights
-nn.initialize_weights(weights)
-
-#a = sgd(nn, X, y, None, 0.001, 16, 10, 1) #Egitim icin
+a = sgd(nn, X, y, None, 0.001, 16, 10, 1) #Egitim icin
 for bat in minibatch:
     nn.prediction(bat[0],bat[1])
     print("==============")

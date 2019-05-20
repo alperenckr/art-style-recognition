@@ -11,7 +11,6 @@ class NeuralNet(object):
     Diğer nöron ağı sınıfları bu sınıftan türetilir.
     Bu kodda bir tane nöron ağı çeşidi bulunmaktadır.
     """
-
     loss_funs = dict(
         cross_ent=loss_fun.cross_entropy,
         squared=loss_fun.squared_loss,
@@ -69,8 +68,6 @@ class NeuralNet(object):
 
         return grad, loss
 
-
-
     def forward(self, X, train=False):
         raise NotImplementedError()
 
@@ -85,7 +82,6 @@ class OurConvNet(NeuralNet):
     
     def __init__(self):
         self.model = self._init_model()
-
 
     def predict_proba(self, X):
         cache = self.forward(X)
@@ -130,7 +126,7 @@ class OurConvNet(NeuralNet):
         hpool1, hpool_cache1 = l.maxpool_forward(relu1,size = 3, stride = 2)             #output: Ix96x27x27
         cache["pool1"] = hpool_cache1
 
-        bn_cache1 = (self.bn_caches["bn1_mean"], self.bn_caches["bn1_var"])
+        bn_cache1 = (self.bn_caches["bn1_mean"], self.bn_caches["bn1_var"])   #batch normalization
         bn1, bn_cache1, run_mean, run_var = l.bn_forward(hpool1, self.model["gamma1"], self.model["beta1"], bn_cache1)
         self.bn_caches["bn1_mean"], self.bn_caches["bn1_var"] = run_mean, run_var
         cache["bn1"] = bn_cache1
@@ -174,7 +170,7 @@ class OurConvNet(NeuralNet):
         cache["pool3"] = hpool_cache3
         
         cache["reshape_pool"] = hpool3
-        h = hpool3.ravel().reshape(train_data.shape[0], -1)
+        h = hpool3.ravel().reshape(train_data.shape[0], -1)   #ravel -->Return the flattened underlying data as an ndarray.
         
 
         out6, cache6 = l.fc_forward(h, self.model['W6'], self.model['b6'])         #output: Ix4096
@@ -197,12 +193,9 @@ class OurConvNet(NeuralNet):
         return cache 
 
     def backward(self, cache, y_train):
-        
-        
+       
         grad_out = loss_fun.dcross_entropy(cache["output"],y_train)
-
         grad = {}
-
         dp8, dW8, db8 = l.fc_backward(grad_out, cache["fc3"])
         grad["W8"] = dW8
         grad["b8"] = db8
@@ -277,7 +270,7 @@ class OurConvNet(NeuralNet):
             W3=np.random.normal(mu, sigma, (384,256, 3, 3)),
             W4=np.random.normal(mu, sigma, (384,384, 3, 3)),
             W5=np.random.normal(mu, sigma, (256,384, 3, 3)),
-            W6=np.random.normal(mu, sigma, (9216, 4096)),
+            W6=np.random.normal(mu, sigma, (9216, 4096)),   #flatten katman (6*6*256)
             W7=np.random.normal(mu, sigma, (4096, 4096)),
             W8=np.random.normal(mu, sigma, (4096, 6)),
             b1=np.zeros((96, 1)),
