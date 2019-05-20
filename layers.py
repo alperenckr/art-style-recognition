@@ -209,23 +209,6 @@ def maxpool_backward(dout, cache):
     return _pool_backward(dout, dmaxpool, cache)
 
 
-def avgpool_forward(X, size=2, stride=2):
-    def avgpool(X_col):
-        out = np.mean(X_col, axis=0)
-        cache = None
-        return out, cache
-
-    return _pool_forward(X, avgpool, size, stride)
-
-
-def avgpool_backward(dout, cache):
-    def davgpool(dX_col, dout_col, pool_cache):
-        dX_col[:, range(dout_col.size)] = 1. / dX_col.shape[0] * dout_col
-        return dX_col
-
-    return _pool_backward(dout, davgpool, cache)
-
-
 def _pool_forward(X, pool_fun, size=2, stride=2):
     n, d, h, w = X.shape
     h_out = (h - size) / stride + 1

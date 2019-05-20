@@ -42,33 +42,6 @@ def dcross_entropy(y_pred, y_train):
 
     return grad_y
 
-
-def hinge_loss(model, y_pred, y_train, lam=1e-3, delta=1):
-    m = y_pred.shape[0]
-
-    margins = (y_pred.T - y_pred[range(m), y_train]).T + delta
-    margins[margins < 0] = 0
-    margins[range(m), y_train] = 0
-
-    data_loss = np.sum(margins) / m
-    reg_loss = regularization(model, reg_type='l2', lam=lam)
-
-    return data_loss + reg_loss
-
-
-def dhinge_loss(y_pred, y_train, margin=1):
-    m = y_pred.shape[0]
-
-    margins = (y_pred.T - y_pred[range(m), y_train]).T + 1.
-    margins[range(m), y_train] = 0
-
-    grad_y = (margins > 0).astype(float)
-    grad_y[range(m), y_train] = -np.sum(grad_y, axis=1)
-    grad_y /= m
-
-    return grad_y
-
-
 def squared_loss(model, y_pred, y_train, lam=1e-3):
     m = y_pred.shape[0]
 
